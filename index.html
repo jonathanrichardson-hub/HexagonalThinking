@@ -3,33 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hexagonal Thinking</title>
+    <title>Interactive Hexagonal Thinking</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f0f4f8;
             margin: 0;
-            overflow: hidden; /* Keeps the board clean */
+            overflow: hidden;
         }
 
-        #header {
-            background-color: #333;
+        /* Control Panel Styles */
+        #controls {
+            background-color: #2c3e50;
             color: white;
-            padding: 15px;
-            text-align: center;
+            padding: 15px 20px;
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 2000;
         }
+
+        #wordList {
+            height: 60px;
+            width: 300px;
+            border-radius: 4px;
+            padding: 5px;
+            font-family: inherit;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        button:hover { background-color: #2980b9; }
+        .btn-share { background-color: #27ae60; }
+        .btn-share:hover { background-color: #2ecc71; }
 
         #board {
             width: 100vw;
-            height: 100vh;
+            height: calc(100vh - 90px);
             position: relative;
         }
 
-        /* This creates the Hexagon shape! */
+        /* Hexagon Styles */
         .hexagon {
             width: 120px;
             height: 138px;
-            background-color: #4CAF50;
+            background-color: #34495e;
             clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
             display: flex;
             align-items: center;
@@ -37,74 +66,248 @@
             color: white;
             font-weight: bold;
             text-align: center;
-            padding: 10px;
+            padding: 15px;
             box-sizing: border-box;
             position: absolute;
             cursor: grab;
             user-select: none;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            transition: transform 0.1s;
+            transition: background-color 0.2s;
+            font-size: 14px;
+            word-wrap: break-word;
         }
 
-        .hexagon:active {
-            cursor: grabbing;
-            transform: scale(1.05);
-            z-index: 1000; /* Brings the dragged hex to the front */
+        .hexagon:active { cursor: grabbing; }
+        .hexagon.has-notes { background-color: #e67e22; } /* Changes color if notes exist */
+
+        /* Modal (Collapsible Textbox) Styles */
+        #noteModal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 3000;
+            width: 400px;
         }
 
-        /* Different colors for different categories */
-        .hex-blue { background-color: #2196F3; }
-        .hex-orange { background-color: #FF9800; }
-        .hex-red { background-color: #f44336; }
-
+        #noteModal h3 { margin-top: 0; color: #2c3e50; }
+        #noteText { width: 100%; height: 150px; margin-bottom: 10px; font-family: inherit; padding: 5px; box-sizing: border-box;}
+        #modalOverlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2999;
+        }
     </style>
 </head>
 <body>
 
-    <div id="header">
-        <h2>Hexagonal Thinking Board</h2>
-        <p>Drag and drop the hexagons to make connections!</p>
+    <div id="controls">
+        <div>
+            <label style="display:block; font-size:12px; margin-bottom:5px;">Paste words here (one per line, or comma separated):</label>
+            <textarea id="wordList" placeholder="Democracy, Freedom, Voting..."></textarea>
+        </div>
+        <button onclick="spawnHexagons()">Spawn Hexagons</button>
+        <button class="btn-share" onclick="generateShareLink()">Copy Share Link</button>
     </div>
 
-    <div id="board">
-        <div class="hexagon" style="left: 50px; top: 50px;">Concept 1</div>
-        <div class="hexagon hex-blue" style="left: 200px; top: 50px;">Concept 2</div>
-        <div class="hexagon hex-orange" style="left: 350px; top: 50px;">Concept 3</div>
-        <div class="hexagon hex-red" style="left: 50px; top: 200px;">Concept 4</div>
-        <div class="hexagon" style="left: 200px; top: 200px;">Concept 5</div>
+    <div id="board"></div>
+
+    <div id="modalOverlay" onclick="closeModal()"></div>
+    <div id="noteModal">
+        <h3 id="modalTitle">Connections</h3>
+        <p style="font-size: 12px; color: #666;">Explain how this connects to its neighbors:</p>
+        <textarea id="noteText"></textarea>
+        <br>
+        <button onclick="saveNote()">Save & Close</button>
     </div>
 
     <script>
-        // This JavaScript makes the hexagons draggable
-        const hexagons = document.querySelectorAll('.hexagon');
-        let activeHex = null;
-        let offsetX = 0;
-        let offsetY = 0;
+        // State Management: This array holds all the data for the board
+        let hexagonsData = [];
+        let activeHexId = null;
+        let currentEditingId = null;
 
-        hexagons.forEach(hex => {
-            hex.addEventListener('pointerdown', (e) => {
-                activeHex = hex;
-                // Calculate where exactly the user clicked on the hexagon
-                const rect = hex.getBoundingClientRect();
-                offsetX = e.clientX - rect.left;
-                offsetY = e.clientY - rect.top;
-                hex.style.zIndex = 1000; // Bring to front
+        const board = document.getElementById('board');
+
+        // 1. Spawning Hexagons from the Textbox
+        function spawnHexagons() {
+            const text = document.getElementById('wordList').value;
+            // Split by comma or new line
+            const words = text.split(/[\n,]+/).map(w => w.trim()).filter(w => w.length > 0);
+            
+            words.forEach((word, index) => {
+                hexagonsData.push({
+                    id: Date.now() + index, // Unique ID
+                    word: word,
+                    x: 50 + (index * 30 % 300), // Stagger them slightly
+                    y: 50 + (index * 30 % 300),
+                    notes: ""
+                });
             });
-        });
+            
+            document.getElementById('wordList').value = ""; // Clear box
+            renderBoard();
+        }
 
-        document.addEventListener('pointermove', (e) => {
-            if (!activeHex) return;
-            // Move the hexagon with the mouse
-            activeHex.style.left = `${e.clientX - offsetX}px`;
-            activeHex.style.top = `${e.clientY - offsetY}px`;
-        });
+        // 2. Drawing the Hexagons on the Screen
+        function renderBoard() {
+            board.innerHTML = ''; // Clear board
+            hexagonsData.forEach(hex => {
+                const el = document.createElement('div');
+                el.className = 'hexagon' + (hex.notes ? ' has-notes' : '');
+                el.innerText = hex.word;
+                el.style.left = hex.x + 'px';
+                el.style.top = hex.y + 'px';
+                el.dataset.id = hex.id;
 
-        document.addEventListener('pointerup', () => {
-            if (activeHex) {
-                activeHex.style.zIndex = 1; // Reset z-index
-                activeHex = null;
+                // Mouse events for dragging
+                el.addEventListener('pointerdown', handlePointerDown);
+                // Double click for notes
+                el.addEventListener('dblclick', () => openModal(hex.id));
+
+                board.appendChild(el);
+            });
+        }
+
+        // 3. Dragging and "Locking" Logic
+        let startX, startY;
+        let clusterIds = [];
+
+        function handlePointerDown(e) {
+            activeHexId = parseInt(e.target.dataset.id);
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            // Find all connected hexagons (Proximity Snapping)
+            clusterIds = getConnectedCluster(activeHexId);
+
+            document.addEventListener('pointermove', handlePointerMove);
+            document.addEventListener('pointerup', handlePointerUp);
+        }
+
+        function handlePointerMove(e) {
+            if (!activeHexId) return;
+            
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            
+            // Move the active hex AND all locked neighbors
+            clusterIds.forEach(id => {
+                const hex = hexagonsData.find(h => h.id === id);
+                hex.x += dx;
+                hex.y += dy;
+                
+                // Update DOM instantly for smooth dragging
+                const el = document.querySelector(`.hexagon[data-id='${id}']`);
+                el.style.left = hex.x + 'px';
+                el.style.top = hex.y + 'px';
+                el.style.zIndex = 1000; // Bring cluster to front
+            });
+
+            startX = e.clientX;
+            startY = e.clientY;
+        }
+
+        function handlePointerUp() {
+            // Reset z-indexes
+            clusterIds.forEach(id => {
+                const el = document.querySelector(`.hexagon[data-id='${id}']`);
+                if(el) el.style.zIndex = 1;
+            });
+            activeHexId = null;
+            clusterIds = [];
+            document.removeEventListener('pointermove', handlePointerMove);
+            document.removeEventListener('pointerup', handlePointerUp);
+        }
+
+        // Math algorithm to group nearby hexagons together
+        function getConnectedCluster(startId) {
+            let cluster = new Set();
+            let queue = [startId];
+            
+            while(queue.length > 0) {
+                let curr = queue.shift();
+                if(!cluster.has(curr)) {
+                    cluster.add(curr);
+                    const currHex = hexagonsData.find(h => h.id === curr);
+                    
+                    hexagonsData.forEach(h => {
+                        if(h.id !== curr && !cluster.has(h.id)) {
+                            // Calculate distance between centers
+                            const dist = Math.sqrt(Math.pow(currHex.x - h.x, 2) + Math.pow(currHex.y - h.y, 2));
+                            if(dist < 140) { // 140px is the "locking" threshold
+                                queue.push(h.id);
+                            }
+                        }
+                    });
+                }
             }
-        });
+            return Array.from(cluster);
+        }
+
+        // 4. Notes Modal Logic
+        function openModal(id) {
+            currentEditingId = id;
+            const hex = hexagonsData.find(h => h.id === id);
+            document.getElementById('modalTitle').innerText = "Connecting: " + hex.word;
+            document.getElementById('noteText').value = hex.notes || "";
+            document.getElementById('noteModal').style.display = 'block';
+            document.getElementById('modalOverlay').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('noteModal').style.display = 'none';
+            document.getElementById('modalOverlay').style.display = 'none';
+            currentEditingId = null;
+        }
+
+        function saveNote() {
+            const hex = hexagonsData.find(h => h.id === currentEditingId);
+            hex.notes = document.getElementById('noteText').value;
+            closeModal();
+            renderBoard(); // Re-render to show color change if notes added
+        }
+
+        // 5. Save and Share Logic (No Database Required!)
+        function generateShareLink() {
+            if (hexagonsData.length === 0) {
+                alert("The board is empty!");
+                return;
+            }
+            // Turn data into a string, then encode it to be safe for a web URL
+            const dataString = JSON.stringify(hexagonsData);
+            const encodedData = btoa(encodeURIComponent(dataString));
+            
+            // Build the final link
+            const shareUrl = window.location.origin + window.location.pathname + "#" + encodedData;
+            
+            navigator.clipboard.writeText(shareUrl).then(() => {
+                alert("Success! The share link has been copied to your clipboard. Paste it anywhere to see this exact board.");
+            });
+        }
+
+        // 6. Load Data when a shared link is opened
+        window.onload = () => {
+            if (window.location.hash) {
+                try {
+                    // Extract the code from the URL and turn it back into data
+                    const encodedData = window.location.hash.substring(1);
+                    const dataString = decodeURIComponent(atob(encodedData));
+                    hexagonsData = JSON.parse(dataString);
+                    renderBoard();
+                } catch(e) {
+                    console.error("Could not load shared board.", e);
+                    alert("This share link seems to be broken or invalid.");
+                }
+            }
+        }
     </script>
 </body>
 </html>
