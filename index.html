@@ -20,14 +20,15 @@
             display: flex;
             gap: 15px;
             align-items: flex-start;
+            flex-wrap: wrap;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
             position: relative;
             z-index: 2000;
         }
 
         #wordList {
-            height: 60px;
-            width: 300px;
+            height: 40px;
+            width: 250px;
             border-radius: 4px;
             padding: 5px;
             font-family: inherit;
@@ -42,11 +43,15 @@
             cursor: pointer;
             font-weight: bold;
             transition: background 0.2s;
+            height: 40px;
+            align-self: flex-end;
         }
 
         button:hover { background-color: #2980b9; }
         .btn-share { background-color: #27ae60; }
         .btn-share:hover { background-color: #2ecc71; }
+        .btn-mode { background-color: #8e44ad; }
+        .btn-mode:hover { background-color: #9b59b6; }
 
         #board {
             width: 100vw;
@@ -78,9 +83,9 @@
         }
 
         .hexagon:active { cursor: grabbing; }
-        .hexagon.has-notes { background-color: #e67e22; } /* Changes color if notes exist */
+        .hexagon.has-notes { background-color: #e67e22; }
 
-        /* Modal (Collapsible Textbox) Styles */
+        /* Modal Styles */
         #noteModal {
             display: none;
             position: fixed;
@@ -110,10 +115,11 @@
 
     <div id="controls">
         <div>
-            <label style="display:block; font-size:12px; margin-bottom:5px;">Paste words here (one per line, or comma separated):</label>
-            <textarea id="wordList" placeholder="Democracy, Freedom, Voting..."></textarea>
+            <label style="display:block; font-size:12px; margin-bottom:5px;">Paste words (comma separated or new lines):</label>
+            <textarea id="wordList" placeholder="Democracy, Freedom..."></textarea>
         </div>
-        <button onclick="spawnHexagons()">Spawn Hexagons</button>
+        <button onclick="spawnHexagons()">Spawn</button>
+        <button id="dragModeBtn" class="btn-mode" onclick="toggleDragMode()">Mode: Move Groups</button>
         <button class="btn-share" onclick="generateShareLink()">Copy Share Link</button>
     </div>
 
@@ -129,36 +135,53 @@
     </div>
 
     <script>
-        // State Management: This array holds all the data for the board
         let hexagonsData = [];
         let activeHexId = null;
         let currentEditingId = null;
+        let dragMode = 'group'; // 'group' or 'single'
 
         const board = document.getElementById('board');
+        const dragModeBtn = document.getElementById('dragModeBtn');
 
-        // 1. Spawning Hexagons from the Textbox
+        // Toggle Drag Mode
+        function toggleDragMode() {
+            if (dragMode === 'group') {
+                dragMode = 'single';
+                dragModeBtn.innerText = "Mode: Move Singles (Detaching)";
+                dragModeBtn.style.backgroundColor = "#e74c3c"; // Turns red to indicate detachment mode
+            } else {
+                dragMode = 'group';
+                dragModeBtn.innerText = "Mode: Move Groups";
+                dragModeBtn.style.backgroundColor = "#8e44ad"; // Back to purple
+            }
+        }
+
+        // 1. Spawning Randomly
         function spawnHexagons() {
             const text = document.getElementById('wordList').value;
-            // Split by comma or new line
             const words = text.split(/[\n,]+/).map(w => w.trim()).filter(w => w.length > 0);
             
+            // Calculate safe boundaries so they don't spawn off-screen
+            const maxX = Math.max(50, window.innerWidth - 150);
+            const maxY = Math.max(50, window.innerHeight - 250);
+
             words.forEach((word, index) => {
                 hexagonsData.push({
-                    id: Date.now() + index, // Unique ID
+                    id: Date.now() + index,
                     word: word,
-                    x: 50 + (index * 30 % 300), // Stagger them slightly
-                    y: 50 + (index * 30 % 300),
+                    x: Math.floor(Math.random() * (maxX - 50 + 1)) + 50, // Random X position
+                    y: Math.floor(Math.random() * (maxY - 50 + 1)) + 50, // Random Y position
                     notes: ""
                 });
             });
             
-            document.getElementById('wordList').value = ""; // Clear box
+            document.getElementById('wordList').value = ""; 
             renderBoard();
         }
 
-        // 2. Drawing the Hexagons on the Screen
+        // 2. Rendering
         function renderBoard() {
-            board.innerHTML = ''; // Clear board
+            board.innerHTML = '';
             hexagonsData.forEach(hex => {
                 const el = document.createElement('div');
                 el.className = 'hexagon' + (hex.notes ? ' has-notes' : '');
@@ -167,16 +190,14 @@
                 el.style.top = hex.y + 'px';
                 el.dataset.id = hex.id;
 
-                // Mouse events for dragging
                 el.addEventListener('pointerdown', handlePointerDown);
-                // Double click for notes
                 el.addEventListener('dblclick', () => openModal(hex.id));
 
                 board.appendChild(el);
             });
         }
 
-        // 3. Dragging and "Locking" Logic
+        // 3. Dragging Logic (Checks which mode is active)
         let startX, startY;
         let clusterIds = [];
 
@@ -185,8 +206,12 @@
             startX = e.clientX;
             startY = e.clientY;
             
-            // Find all connected hexagons (Proximity Snapping)
-            clusterIds = getConnectedCluster(activeHexId);
+            // If in group mode, find neighbors. If in single mode, just move the one clicked.
+            if (dragMode === 'group') {
+                clusterIds = getConnectedCluster(activeHexId);
+            } else {
+                clusterIds = [activeHexId];
+            }
 
             document.addEventListener('pointermove', handlePointerMove);
             document.addEventListener('pointerup', handlePointerUp);
@@ -198,17 +223,17 @@
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
             
-            // Move the active hex AND all locked neighbors
             clusterIds.forEach(id => {
                 const hex = hexagonsData.find(h => h.id === id);
                 hex.x += dx;
                 hex.y += dy;
                 
-                // Update DOM instantly for smooth dragging
                 const el = document.querySelector(`.hexagon[data-id='${id}']`);
-                el.style.left = hex.x + 'px';
-                el.style.top = hex.y + 'px';
-                el.style.zIndex = 1000; // Bring cluster to front
+                if(el) {
+                    el.style.left = hex.x + 'px';
+                    el.style.top = hex.y + 'px';
+                    el.style.zIndex = 1000;
+                }
             });
 
             startX = e.clientX;
@@ -216,7 +241,6 @@
         }
 
         function handlePointerUp() {
-            // Reset z-indexes
             clusterIds.forEach(id => {
                 const el = document.querySelector(`.hexagon[data-id='${id}']`);
                 if(el) el.style.zIndex = 1;
@@ -227,7 +251,7 @@
             document.removeEventListener('pointerup', handlePointerUp);
         }
 
-        // Math algorithm to group nearby hexagons together
+        // Math for clustering
         function getConnectedCluster(startId) {
             let cluster = new Set();
             let queue = [startId];
@@ -240,11 +264,8 @@
                     
                     hexagonsData.forEach(h => {
                         if(h.id !== curr && !cluster.has(h.id)) {
-                            // Calculate distance between centers
                             const dist = Math.sqrt(Math.pow(currHex.x - h.x, 2) + Math.pow(currHex.y - h.y, 2));
-                            if(dist < 140) { // 140px is the "locking" threshold
-                                queue.push(h.id);
-                            }
+                            if(dist < 140) queue.push(h.id);
                         }
                     });
                 }
@@ -252,7 +273,7 @@
             return Array.from(cluster);
         }
 
-        // 4. Notes Modal Logic
+        // 4. Modals
         function openModal(id) {
             currentEditingId = id;
             const hex = hexagonsData.find(h => h.id === id);
@@ -272,32 +293,28 @@
             const hex = hexagonsData.find(h => h.id === currentEditingId);
             hex.notes = document.getElementById('noteText').value;
             closeModal();
-            renderBoard(); // Re-render to show color change if notes added
+            renderBoard();
         }
 
-        // 5. Save and Share Logic (No Database Required!)
+        // 5. Save & Share
         function generateShareLink() {
             if (hexagonsData.length === 0) {
                 alert("The board is empty!");
                 return;
             }
-            // Turn data into a string, then encode it to be safe for a web URL
             const dataString = JSON.stringify(hexagonsData);
             const encodedData = btoa(encodeURIComponent(dataString));
-            
-            // Build the final link
             const shareUrl = window.location.origin + window.location.pathname + "#" + encodedData;
             
             navigator.clipboard.writeText(shareUrl).then(() => {
-                alert("Success! The share link has been copied to your clipboard. Paste it anywhere to see this exact board.");
+                alert("Success! The share link has been copied to your clipboard.");
             });
         }
 
-        // 6. Load Data when a shared link is opened
+        // 6. Load Shared Link
         window.onload = () => {
             if (window.location.hash) {
                 try {
-                    // Extract the code from the URL and turn it back into data
                     const encodedData = window.location.hash.substring(1);
                     const dataString = decodeURIComponent(atob(encodedData));
                     hexagonsData = JSON.parse(dataString);
