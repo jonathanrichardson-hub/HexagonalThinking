@@ -8,17 +8,17 @@
         /* Modern, Earthy Theme */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #FDFBF7; 
+            background-color: #F4EBE1; /* NEW: Light Beige Background */
             margin: 0;
             overflow: hidden;
             color: #4A3F35; 
         }
 
-        /* NEW: Header Styles */
+        /* Header Styles */
         #pageHeader {
             text-align: center;
             padding: 20px 20px 15px 20px;
-            background-color: #FDFBF7;
+            background-color: #F4EBE1; /* NEW: Matches the body */
         }
 
         #pageHeader h1 {
@@ -83,7 +83,7 @@
         .btn-danger { background-color: #B05C52; } 
         .btn-danger:hover { background-color: #944B43; }
 
-        /* NEW: Tooltip Styles for the Mode Button */
+        /* Tooltip Styles for the Mode Button */
         .tooltip-container {
             position: relative;
             display: inline-block;
@@ -113,7 +113,6 @@
             pointer-events: none;
         }
 
-        /* The little triangle arrow pointing up */
         .tooltip-text::after {
             content: "";
             position: absolute;
@@ -130,7 +129,7 @@
             opacity: 1;
         }
 
-        /* Board adjusted to account for the new header height */
+        /* Board adjusted to account for the header height */
         #board {
             width: 100vw;
             height: calc(100vh - 180px);
@@ -275,7 +274,7 @@
             const words = text.split(/[\n,]+/).map(w => w.trim()).filter(w => w.length > 0);
             
             const maxX = Math.max(50, window.innerWidth - 150);
-            const maxY = Math.max(50, window.innerHeight - 300); // Adjusted slightly for new header
+            const maxY = Math.max(50, window.innerHeight - 300);
 
             words.forEach((word, index) => {
                 hexagonsData.push({
