@@ -5,11 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hexagonal Thinking</title>
     <style>
+        :root {
+            /* NEW: Global variable to control hexagon size */
+            --hex-scale: 1; 
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #F4EBE1; 
             margin: 0;
-            overflow: hidden;
+            overflow: hidden; /* We hide the main window scroll... */
             color: #4A3F35; 
         }
 
@@ -28,7 +33,7 @@
             padding: 15px 20px;
             display: flex;
             gap: 15px;
-            align-items: flex-end; /* Align items to the bottom of the bar */
+            align-items: flex-end; 
             flex-wrap: wrap;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
             position: relative;
@@ -38,15 +43,18 @@
         .control-group { display: flex; flex-direction: column; gap: 5px; }
 
         #wordList {
-            height: 40px; width: 220px;
+            height: 40px; width: 180px;
             border-radius: 6px; border: 1px solid #D4C5B9;
             padding: 5px 10px; font-family: inherit;
         }
 
-        select {
+        select, input[type="range"] {
             height: 40px; border-radius: 6px; border: 1px solid #D4C5B9;
             padding: 5px; font-family: inherit; background: white; cursor: pointer;
         }
+
+        /* NEW: Styling for the slider */
+        input[type="range"] { padding: 0; width: 120px; }
 
         button {
             background-color: #C18C5D; color: white; border: none;
@@ -60,7 +68,6 @@
         .btn-mode { background-color: #6C809A; } 
         .btn-danger { background-color: #B05C52; } 
 
-        /* Tooltip Styles */
         .tooltip-container { position: relative; display: inline-block; }
         .tooltip-text {
             visibility: hidden; width: 240px; background-color: #FDFBF7;
@@ -73,20 +80,41 @@
         }
         .tooltip-container:hover .tooltip-text { visibility: visible; opacity: 1; }
 
-        #board { width: 100vw; height: calc(100vh - 180px); position: relative; }
+        /* NEW: The Scrollable Window */
+        #board-wrapper {
+            width: 100vw; 
+            height: calc(100vh - 180px); 
+            overflow: auto; /* ...and add scrollbars here! */
+            background-color: #F4EBE1;
+        }
 
+        /* NEW: The Massive Canvas */
+        #board { 
+            width: 3000px; 
+            height: 3000px; 
+            position: relative; 
+            /* Subtle dot grid so they know they are scrolling */
+            background-image: radial-gradient(#D4C5B9 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* NEW: Responsive Hexagon Size using the --hex-scale variable */
         .hexagon {
-            width: 120px; height: 138px;
+            width: calc(120px * var(--hex-scale)); 
+            height: calc(138px * var(--hex-scale));
+            font-size: calc(13px * var(--hex-scale));
             clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
             display: flex; align-items: center; justify-content: center;
             color: white; font-weight: bold; text-align: center;
-            padding: 15px; box-sizing: border-box; position: absolute;
+            padding: calc(15px * var(--hex-scale)); box-sizing: border-box; position: absolute;
             cursor: grab; user-select: none;
             box-shadow: 0 4px 8px rgba(0,0,0,0.15);
             transition: background-color 0.4s ease, transform 0.1s;
-            font-size: 13px; word-wrap: break-word;
+            word-wrap: break-word;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
         }
+
+        .hexagon:active { cursor: grabbing; transform: scale(1.02); }
 
         #noteModal {
             display: none; position: fixed; top: 50%; left: 50%;
@@ -124,8 +152,13 @@
         </div>
 
         <button onclick="spawnHexagons()">Spawn</button>
+
+        <div class="control-group" style="margin-left: 10px;">
+            <label style="font-size:11px; color:#E5DCD3;">Hexagon Size:</label>
+            <input type="range" id="sizeSlider" min="0.5" max="1.5" step="0.1" value="1" oninput="updateSize()">
+        </div>
         
-        <div class="tooltip-container">
+        <div class="tooltip-container" style="margin-left: 10px;">
             <button id="dragModeBtn" class="btn-mode" onclick="toggleDragMode()">Mode: Move Groups</button>
             <div class="tooltip-text">
                 <strong>How it works:</strong><br><br>
@@ -138,7 +171,9 @@
         <button class="btn-danger" onclick="clearBoard()">Clear Board</button>
     </div>
 
-    <div id="board"></div>
+    <div id="board-wrapper">
+        <div id="board"></div>
+    </div>
 
     <div id="modalOverlay" onclick="closeModal()"></div>
     <div id="noteModal">
@@ -159,21 +194,28 @@
     </div>
 
     <script>
-        // Palette Map: [Base Color, Note-Added Color]
         const palette = {
-            clay: ['#BA8E7A', '#829377'], // Clay -> Sage
-            slate: ['#6C809A', '#4A586E'], // Slate -> Deep Slate
-            ochre: ['#C18C5D', '#8C6239'], // Ochre -> Bronze
-            moss: ['#7A8B76', '#4E5B49']   // Moss -> Dark Moss
+            clay: ['#BA8E7A', '#829377'], 
+            slate: ['#6C809A', '#4A586E'], 
+            ochre: ['#C18C5D', '#8C6239'], 
+            moss: ['#7A8B76', '#4E5B49']   
         };
 
         let hexagonsData = [];
         let activeHexId = null;
         let currentEditingId = null;
         let dragMode = 'group'; 
+        let currentScale = 1; // Tracks our current zoom level
 
         const board = document.getElementById('board');
+        const boardWrapper = document.getElementById('board-wrapper');
         const dragModeBtn = document.getElementById('dragModeBtn');
+
+        // NEW: Function to update CSS scale variable
+        function updateSize() {
+            currentScale = parseFloat(document.getElementById('sizeSlider').value);
+            document.documentElement.style.setProperty('--hex-scale', currentScale);
+        }
 
         function toggleDragMode() {
             if (dragMode === 'group') {
@@ -192,15 +234,19 @@
             const theme = document.getElementById('colorPicker').value;
             const words = text.split(/[\n,]+/).map(w => w.trim()).filter(w => w.length > 0);
             
-            const maxX = Math.max(50, window.innerWidth - 150);
-            const maxY = Math.max(50, window.innerHeight - 300);
+            // NEW: Spawns in the center of wherever the user has currently scrolled to
+            const scrollX = boardWrapper.scrollLeft;
+            const scrollY = boardWrapper.scrollTop;
+            const viewWidth = boardWrapper.clientWidth;
+            const viewHeight = boardWrapper.clientHeight;
 
             words.forEach((word, index) => {
                 hexagonsData.push({
                     id: Date.now() + index,
                     word: word,
-                    x: Math.floor(Math.random() * (maxX - 50 + 1)) + 50,
-                    y: Math.floor(Math.random() * (maxY - 50 + 1)) + 50,
+                    // Keeps them safely within the currently viewed area
+                    x: scrollX + 100 + Math.floor(Math.random() * (viewWidth - 250)),
+                    y: scrollY + 100 + Math.floor(Math.random() * (viewHeight - 250)),
                     notes: "",
                     theme: theme
                 });
@@ -220,7 +266,6 @@
                 el.style.top = hex.y + 'px';
                 el.dataset.id = hex.id;
 
-                // Set Color based on notes
                 const colors = palette[hex.theme] || palette.clay;
                 el.style.backgroundColor = hex.notes ? colors[1] : colors[0];
 
@@ -231,7 +276,6 @@
             });
         }
 
-        // --- Dragging Logic ---
         let startX, startY, clusterIds = [];
 
         function handlePointerDown(e) {
@@ -274,7 +318,8 @@
                     hexagonsData.forEach(h => {
                         if(h.id !== curr && !cluster.has(h.id)) {
                             const dist = Math.sqrt(Math.pow(currHex.x - h.x, 2) + Math.pow(currHex.y - h.y, 2));
-                            if(dist < 140) queue.push(h.id);
+                            // NEW: Distance calculation now scales with the size of the hexagons
+                            if(dist < (140 * currentScale)) queue.push(h.id);
                         }
                     });
                 }
@@ -282,7 +327,6 @@
             return Array.from(cluster);
         }
 
-        // --- Modal & Utility ---
         function openModal(id) {
             currentEditingId = id;
             const hex = hexagonsData.find(h => h.id === id);
