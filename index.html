@@ -5,55 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hexagonal Thinking</title>
     <style>
-        :root {
-            /* NEW: Global variable to control hexagon size */
-            --hex-scale: 1; 
-        }
+        :root { --hex-scale: 1; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #F4EBE1; 
-            margin: 0;
-            overflow: hidden; /* We hide the main window scroll... */
-            color: #4A3F35; 
+            margin: 0; overflow: hidden; color: #4A3F35; 
         }
 
         #pageHeader {
-            text-align: center;
-            padding: 20px 20px 15px 20px;
-            background-color: #F4EBE1;
+            text-align: center; padding: 20px 20px 15px 20px; background-color: #F4EBE1;
         }
-
         #pageHeader h1 { margin: 0 0 8px 0; font-size: 32px; color: #4A3F35; }
         #pageHeader p { margin: 0 auto; font-size: 15px; color: #7A6B5D; max-width: 700px; line-height: 1.5; }
 
         #controls {
-            background-color: #4A3F35; 
-            color: #FDFBF7;
-            padding: 15px 20px;
-            display: flex;
-            gap: 15px;
-            align-items: flex-end; 
-            flex-wrap: wrap;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-            position: relative;
-            z-index: 2000;
+            background-color: #4A3F35; color: #FDFBF7; padding: 15px 20px;
+            display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15); position: relative; z-index: 2000;
         }
 
         .control-group { display: flex; flex-direction: column; gap: 5px; }
 
-        #wordList {
-            height: 40px; width: 180px;
-            border-radius: 6px; border: 1px solid #D4C5B9;
-            padding: 5px 10px; font-family: inherit;
-        }
-
-        select, input[type="range"] {
-            height: 40px; border-radius: 6px; border: 1px solid #D4C5B9;
-            padding: 5px; font-family: inherit; background: white; cursor: pointer;
-        }
-
-        /* NEW: Styling for the slider */
+        #wordList { height: 40px; width: 180px; border-radius: 6px; border: 1px solid #D4C5B9; padding: 5px 10px; font-family: inherit; }
+        select, input[type="range"] { height: 40px; border-radius: 6px; border: 1px solid #D4C5B9; padding: 5px; font-family: inherit; background: white; cursor: pointer; }
         input[type="range"] { padding: 0; width: 120px; }
 
         button {
@@ -64,9 +39,11 @@
         }
 
         button:hover { background-color: #A87A4F; transform: translateY(-1px); }
-        .btn-share { background-color: #7A8B76; } 
         .btn-mode { background-color: #6C809A; } 
         .btn-danger { background-color: #B05C52; } 
+        .btn-export { background-color: #7A8B76; }
+        .btn-export:hover { background-color: #5d6b5a; }
+        .btn-pdf { background-color: #8C6239; }
 
         .tooltip-container { position: relative; display: inline-block; }
         .tooltip-text {
@@ -75,54 +52,33 @@
             padding: 12px; position: absolute; z-index: 3000;
             top: 130%; left: 50%; margin-left: -120px; opacity: 0;
             transition: opacity 0.3s; font-size: 13px; line-height: 1.5;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 1px solid #E5DCD3;
-            pointer-events: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); border: 1px solid #E5DCD3; pointer-events: none;
         }
         .tooltip-container:hover .tooltip-text { visibility: visible; opacity: 1; }
 
-        /* NEW: The Scrollable Window */
-        #board-wrapper {
-            width: 100vw; 
-            height: calc(100vh - 180px); 
-            overflow: auto; /* ...and add scrollbars here! */
-            background-color: #F4EBE1;
-        }
-
-        /* NEW: The Massive Canvas */
+        #board-wrapper { width: 100vw; height: calc(100vh - 180px); overflow: auto; background-color: #F4EBE1; }
         #board { 
-            width: 3000px; 
-            height: 3000px; 
-            position: relative; 
-            /* Subtle dot grid so they know they are scrolling */
-            background-image: radial-gradient(#D4C5B9 1px, transparent 1px);
-            background-size: 40px 40px;
+            width: 3000px; height: 3000px; position: relative; 
+            background-image: radial-gradient(#D4C5B9 1px, transparent 1px); background-size: 40px 40px;
         }
 
-        /* NEW: Responsive Hexagon Size using the --hex-scale variable */
         .hexagon {
-            width: calc(120px * var(--hex-scale)); 
-            height: calc(138px * var(--hex-scale));
+            width: calc(120px * var(--hex-scale)); height: calc(138px * var(--hex-scale));
             font-size: calc(13px * var(--hex-scale));
             clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
             display: flex; align-items: center; justify-content: center;
             color: white; font-weight: bold; text-align: center;
             padding: calc(15px * var(--hex-scale)); box-sizing: border-box; position: absolute;
-            cursor: grab; user-select: none;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-            transition: background-color 0.4s ease, transform 0.1s;
-            word-wrap: break-word;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            cursor: grab; user-select: none; box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            transition: background-color 0.4s ease, transform 0.1s; word-wrap: break-word; text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
         }
-
         .hexagon:active { cursor: grabbing; transform: scale(1.02); }
 
         #noteModal {
             display: none; position: fixed; top: 50%; left: 50%;
             transform: translate(-50%, -50%); background: #FDFBF7;
-            padding: 25px; border-radius: 12px; z-index: 3000; width: 400px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2); border: 1px solid #E5DCD3;
+            padding: 25px; border-radius: 12px; z-index: 3000; width: 400px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); border: 1px solid #E5DCD3;
         }
-
         #noteText { width: 100%; height: 120px; margin: 10px 0; padding: 10px; border-radius: 6px; border: 1px solid #D4C5B9; box-sizing: border-box;}
         #modalOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(74, 63, 53, 0.4); backdrop-filter: blur(2px); z-index: 2999; }
         .modal-buttons { display: flex; justify-content: space-between; margin-top: 10px; }
@@ -167,8 +123,13 @@
             </div>
         </div>
 
-        <button class="btn-share" onclick="generateShareLink()">Copy Share Link</button>
-        <button class="btn-danger" onclick="clearBoard()">Clear Board</button>
+        <button class="btn-export" onclick="downloadBoard()">Download File</button>
+        <button class="btn-export" onclick="document.getElementById('fileInput').click()">Load File</button>
+        <input type="file" id="fileInput" style="display: none;" accept=".json" onchange="loadBoard(event)">
+        
+        <button class="btn-pdf" onclick="printNotes()">Print Notes (PDF)</button>
+
+        <button class="btn-danger" onclick="clearBoard()">Clear</button>
     </div>
 
     <div id="board-wrapper">
@@ -195,23 +156,17 @@
 
     <script>
         const palette = {
-            clay: ['#BA8E7A', '#829377'], 
-            slate: ['#6C809A', '#4A586E'], 
-            ochre: ['#C18C5D', '#8C6239'], 
-            moss: ['#7A8B76', '#4E5B49']   
+            clay: ['#BA8E7A', '#829377'], slate: ['#6C809A', '#4A586E'], 
+            ochre: ['#C18C5D', '#8C6239'], moss: ['#7A8B76', '#4E5B49']   
         };
 
-        let hexagonsData = [];
-        let activeHexId = null;
-        let currentEditingId = null;
-        let dragMode = 'group'; 
-        let currentScale = 1; // Tracks our current zoom level
+        let hexagonsData = []; let activeHexId = null; let currentEditingId = null;
+        let dragMode = 'group'; let currentScale = 1; 
 
         const board = document.getElementById('board');
         const boardWrapper = document.getElementById('board-wrapper');
         const dragModeBtn = document.getElementById('dragModeBtn');
 
-        // NEW: Function to update CSS scale variable
         function updateSize() {
             currentScale = parseFloat(document.getElementById('sizeSlider').value);
             document.documentElement.style.setProperty('--hex-scale', currentScale);
@@ -219,13 +174,9 @@
 
         function toggleDragMode() {
             if (dragMode === 'group') {
-                dragMode = 'single';
-                dragModeBtn.innerText = "Mode: Move Singles";
-                dragModeBtn.style.backgroundColor = "#B05C52"; 
+                dragMode = 'single'; dragModeBtn.innerText = "Mode: Move Singles"; dragModeBtn.style.backgroundColor = "#B05C52"; 
             } else {
-                dragMode = 'group';
-                dragModeBtn.innerText = "Mode: Move Groups";
-                dragModeBtn.style.backgroundColor = "#6C809A"; 
+                dragMode = 'group'; dragModeBtn.innerText = "Mode: Move Groups"; dragModeBtn.style.backgroundColor = "#6C809A"; 
             }
         }
 
@@ -233,45 +184,32 @@
             const text = document.getElementById('wordList').value;
             const theme = document.getElementById('colorPicker').value;
             const words = text.split(/[\n,]+/).map(w => w.trim()).filter(w => w.length > 0);
-            
-            // NEW: Spawns in the center of wherever the user has currently scrolled to
-            const scrollX = boardWrapper.scrollLeft;
-            const scrollY = boardWrapper.scrollTop;
-            const viewWidth = boardWrapper.clientWidth;
-            const viewHeight = boardWrapper.clientHeight;
+            const scrollX = boardWrapper.scrollLeft; const scrollY = boardWrapper.scrollTop;
+            const viewWidth = boardWrapper.clientWidth; const viewHeight = boardWrapper.clientHeight;
 
             words.forEach((word, index) => {
                 hexagonsData.push({
-                    id: Date.now() + index,
-                    word: word,
-                    // Keeps them safely within the currently viewed area
+                    id: Date.now() + index, word: word,
                     x: scrollX + 100 + Math.floor(Math.random() * (viewWidth - 250)),
                     y: scrollY + 100 + Math.floor(Math.random() * (viewHeight - 250)),
-                    notes: "",
-                    theme: theme
+                    notes: "", theme: theme
                 });
             });
-            
-            document.getElementById('wordList').value = ""; 
-            renderBoard();
+            document.getElementById('wordList').value = ""; renderBoard();
         }
 
         function renderBoard() {
             board.innerHTML = '';
             hexagonsData.forEach(hex => {
                 const el = document.createElement('div');
-                el.className = 'hexagon';
-                el.innerText = hex.word;
-                el.style.left = hex.x + 'px';
-                el.style.top = hex.y + 'px';
-                el.dataset.id = hex.id;
+                el.className = 'hexagon'; el.innerText = hex.word;
+                el.style.left = hex.x + 'px'; el.style.top = hex.y + 'px'; el.dataset.id = hex.id;
 
                 const colors = palette[hex.theme] || palette.clay;
                 el.style.backgroundColor = hex.notes ? colors[1] : colors[0];
 
                 el.addEventListener('pointerdown', handlePointerDown);
                 el.addEventListener('dblclick', () => openModal(hex.id));
-
                 board.appendChild(el);
             });
         }
@@ -318,7 +256,6 @@
                     hexagonsData.forEach(h => {
                         if(h.id !== curr && !cluster.has(h.id)) {
                             const dist = Math.sqrt(Math.pow(currHex.x - h.x, 2) + Math.pow(currHex.y - h.y, 2));
-                            // NEW: Distance calculation now scales with the size of the hexagons
                             if(dist < (140 * currentScale)) queue.push(h.id);
                         }
                     });
@@ -328,8 +265,7 @@
         }
 
         function openModal(id) {
-            currentEditingId = id;
-            const hex = hexagonsData.find(h => h.id === id);
+            currentEditingId = id; const hex = hexagonsData.find(h => h.id === id);
             document.getElementById('modalTitle').innerText = hex.word;
             document.getElementById('noteText').value = hex.notes || "";
             document.getElementById('modalColorPicker').value = hex.theme || "clay";
@@ -338,47 +274,98 @@
         }
 
         function closeModal() {
-            document.getElementById('noteModal').style.display = 'none';
-            document.getElementById('modalOverlay').style.display = 'none';
+            document.getElementById('noteModal').style.display = 'none'; document.getElementById('modalOverlay').style.display = 'none';
         }
 
         function saveNote() {
             const hex = hexagonsData.find(h => h.id === currentEditingId);
             hex.notes = document.getElementById('noteText').value;
             hex.theme = document.getElementById('modalColorPicker').value;
-            closeModal();
-            renderBoard();
+            closeModal(); renderBoard();
         }
 
         function deleteHexagon() {
-            if (confirm("Delete this hexagon?")) {
-                hexagonsData = hexagonsData.filter(h => h.id !== currentEditingId);
-                closeModal();
-                renderBoard();
-            }
+            if (confirm("Delete this hexagon?")) { hexagonsData = hexagonsData.filter(h => h.id !== currentEditingId); closeModal(); renderBoard(); }
         }
 
-        function clearBoard() {
-            if (confirm("Clear the entire board?")) {
-                hexagonsData = []; renderBoard(); 
-            }
+        function clearBoard() { if (confirm("Clear the entire board?")) { hexagonsData = []; renderBoard(); } }
+
+        // --- NEW EXPORT FUNCTIONS ---
+
+        // 1. Download File Logic
+        function downloadBoard() {
+            if (hexagonsData.length === 0) return alert("The board is empty!");
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(hexagonsData));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "my_hexagon_board.json");
+            document.body.appendChild(downloadAnchorNode); // required for firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
         }
 
-        function generateShareLink() {
-            if (hexagonsData.length === 0) return;
-            const encodedData = btoa(encodeURIComponent(JSON.stringify(hexagonsData)));
-            const shareUrl = window.location.origin + window.location.pathname + "#" + encodedData;
-            navigator.clipboard.writeText(shareUrl).then(() => alert("Share link copied!"));
-        }
-
-        window.onload = () => {
-            if (window.location.hash) {
+        // 2. Load File Logic
+        function loadBoard(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
                 try {
-                    hexagonsData = JSON.parse(decodeURIComponent(atob(window.location.hash.substring(1))));
+                    hexagonsData = JSON.parse(e.target.result);
                     renderBoard();
-                } catch(e) { console.error(e); }
-            }
+                    alert("Board loaded successfully!");
+                } catch (err) {
+                    alert("Oops! That doesn't look like a valid board file.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input so you can load the same file twice if needed
+        }
+
+        // 3. Print Notes (PDF) Logic
+        function printNotes() {
+            if (hexagonsData.length === 0) return alert("The board is empty!");
+            let printWindow = window.open('', '_blank');
+            let html = `
+                <html>
+                <head>
+                    <title>Hexagonal Thinking - Connections</title>
+                    <style>
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; line-height: 1.6; }
+                        h1 { color: #4A3F35; border-bottom: 2px solid #D4C5B9; padding-bottom: 10px; }
+                        .hex-note { margin-bottom: 20px; padding: 20px; border: 1px solid #D4C5B9; border-radius: 8px; page-break-inside: avoid; background-color: #FAFAF8;}
+                        .hex-title { font-weight: bold; font-size: 18px; color: #C18C5D; margin-bottom: 8px;}
+                        .theme-tag { font-size: 12px; color: #7A8B76; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: block; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Hexagonal Thinking: Connections & Notes</h1>
+                    <p><em>Note: This document contains the written explanations for the hexagonal map.</em></p>
+            `;
+            
+            // Sort alphabetically for easier reading
+            let sortedData = [...hexagonsData].sort((a, b) => a.word.localeCompare(b.word));
+
+            sortedData.forEach(hex => {
+                const noteContent = hex.notes ? hex.notes.replace(/\n/g, '<br>') : '<em>No notes added.</em>';
+                html += `
+                    <div class="hex-note">
+                        <div class="hex-title">${hex.word}</div>
+                        <span class="theme-tag">Theme Category: ${hex.theme}</span>
+                        <div>${noteContent}</div>
+                    </div>
+                `;
+            });
+
+            html += `</body></html>`;
+            printWindow.document.write(html);
+            printWindow.document.close();
+            
+            // Give the browser a split second to render the CSS before opening the print dialog
+            setTimeout(() => {
+                printWindow.print();
+            }, 250);
         }
     </script>
 </body>
-</html>  
+</html>
