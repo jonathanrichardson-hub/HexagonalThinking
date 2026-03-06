@@ -74,7 +74,6 @@
         #modalOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(74, 63, 53, 0.4); backdrop-filter: blur(2px); z-index: 2999; }
         .modal-buttons { display: flex; justify-content: space-between; margin-top: 10px; }
 
-        /* NEW: Dedicated CSS for the physical print output */
         @media print {
             body.printing-mode, body.printing-mode #board-wrapper { 
                 overflow: visible !important; height: auto !important; width: auto !important; background: white !important; 
@@ -130,7 +129,7 @@
 
         <button class="btn-export" onclick="downloadBoard()">Download File</button>
         <button class="btn-export" onclick="document.getElementById('fileInput').click()">Load File</button>
-        <input type="file" id="fileInput" style="display: none;" accept=".json" onchange="loadBoard(event)">
+        <input type="file" id="fileInput" style="display: none;" accept=".hexmap" onchange="loadBoard(event)">
         
         <button class="btn-pdf" onclick="printNotes()">Print Notes (PDF)</button>
         <button class="btn-danger" onclick="clearBoard()">Clear</button>
@@ -299,7 +298,8 @@
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(hexagonsData));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "my_hexagon_board.json");
+            // CHANGED: .json to .hexmap
+            downloadAnchorNode.setAttribute("download", "my_hexagon_board.hexmap");
             document.body.appendChild(downloadAnchorNode); 
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
@@ -319,11 +319,9 @@
             event.target.value = ''; 
         }
 
-        // --- NEW: THE UPGRADED PRINT FUNCTION ---
         function printNotes() {
             if (hexagonsData.length === 0) return alert("The board is empty!");
 
-            // 1. Find the edges of their workspace so we can crop the giant 3000px board
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             const hexW = 120 * currentScale; const hexH = 138 * currentScale;
             
@@ -332,32 +330,27 @@
                 if (hex.x > maxX) maxX = hex.x; if (hex.y > maxY) maxY = hex.y;
             });
 
-            // 2. Temporarily shift all hexagons to coordinate (0,0) and scale if it's too wide
             const hexElements = document.querySelectorAll('.hexagon');
             hexElements.forEach(el => {
                 const id = parseInt(el.dataset.id);
                 const hex = hexagonsData.find(h => h.id === id);
                 el.dataset.origLeft = el.style.left; el.dataset.origTop = el.style.top;
                 
-                // Shift them tightly into the top left corner
                 el.style.left = (hex.x - minX + 20) + 'px'; 
                 el.style.top = (hex.y - minY + 20) + 'px';
             });
 
-            // Shrink the invisible board wrapper so it doesn't print hundreds of blank pages
             let boardWidth = (maxX - minX) + hexW + 40;
             let boardHeight = (maxY - minY) + hexH + 40;
             board.dataset.origWidth = board.style.width; board.dataset.origHeight = board.style.height;
             board.style.width = boardWidth + 'px'; board.style.height = boardHeight + 'px';
 
-            // Scale down if their web is wider than an 8.5x11 portrait page (approx 750px width)
             if (boardWidth > 750) {
                 const scaleDown = 750 / boardWidth;
                 board.style.transform = `scale(${scaleDown})`;
                 board.style.transformOrigin = 'top left';
             }
 
-            // 3. Append the written notes below the visual map
             const notesContainer = document.createElement('div');
             notesContainer.id = 'printNotesContainer';
             let notesHtml = `<h2 style="color: #4A3F35; margin-bottom: 5px;">Hexagonal Thinking: Explanations</h2><hr style="border: 1px solid #D4C5B9; margin-bottom: 20px;">`;
@@ -375,14 +368,11 @@
             notesContainer.innerHTML = notesHtml;
             document.body.appendChild(notesContainer);
 
-            // 4. Enter printing layout
             document.body.classList.add('printing-mode');
 
-            // 5. Open print dialog and clean up when done
             setTimeout(() => {
                 window.print();
                 
-                // Instantly snap everything back to normal!
                 document.body.classList.remove('printing-mode');
                 document.body.removeChild(notesContainer);
                 board.style.transform = 'none';
